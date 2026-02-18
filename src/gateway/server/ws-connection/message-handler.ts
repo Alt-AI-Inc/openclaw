@@ -822,8 +822,7 @@ export function attachGatewayWsMessageHandler(params: {
           connId,
           presenceKey,
           clientIp: reportedClientIp,
-          authenticatedUser:
-            authResult.ok && "user" in authResult ? authResult.user : undefined,
+          authenticatedUser: authResult.ok && "user" in authResult ? authResult.user : undefined,
         };
         setClient(nextClient);
         setHandshakeState("connected");

@@ -12,7 +12,6 @@ import { loadConfig } from "../../config/config.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
-import { rewriteSessionKeyForUser } from "../server-session-key-rewrite.js";
 import {
   abortChatRunById,
   abortChatRunsForSessionKey,
@@ -34,6 +33,7 @@ import {
   validateChatSendParams,
 } from "../protocol/index.js";
 import { getMaxChatHistoryMessagesBytes } from "../server-constants.js";
+import { rewriteSessionKeyForUser } from "../server-session-key-rewrite.js";
 import {
   capArrayByJsonBytes,
   loadSessionEntry,

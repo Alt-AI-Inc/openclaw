@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install pnpm
         run: npm install -g pnpm@10.23.0
@@ -46,7 +46,7 @@ jobs:
 
           # Rename to openclaw.tgz for consistent "latest" URL
           mv openclaw-*.tgz openclaw.tgz
-          
+
           ls -lh openclaw.tgz
           echo "✅ Build complete!"
 
@@ -60,11 +60,11 @@ jobs:
           generate_release_notes: true
           body: |
             🚀 OpenClaw v${{ steps.version.outputs.version }}
-            
+
             Built from commit: ${{ github.sha }}
-            
+
             ## Installation
-            
+
             ```bash
             # As npm dependency
             pnpm add https://github.com/Alt-AI-Inc/openclaw/releases/latest/download/openclaw.tgz
