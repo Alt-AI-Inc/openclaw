@@ -7,4 +7,6 @@ export type GatewayWsClient = {
   connId: string;
   presenceKey?: string;
   clientIp?: string;
+  /** Authenticated user from trusted-proxy auth (email/username) */
+  authenticatedUser?: string;
 };

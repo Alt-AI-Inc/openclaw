@@ -17,6 +17,8 @@ type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
+  /** Authenticated user from trusted-proxy auth (email/username) */
+  authenticatedUser?: string;
 };
 
 export type RespondFn = (
