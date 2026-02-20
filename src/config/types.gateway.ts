@@ -101,13 +101,6 @@ export type GatewayTrustedProxyConfig = {
    * Example: ["nick@example.com", "admin@company.org"]
    */
   allowUsers?: string[];
-  /**
-   * When enabled, each authenticated user gets their own isolated session.
-   * Session keys will be based on the user identity (e.g., "user:email@example.com").
-   * Recommended for multi-user deployments to prevent session sharing.
-   * @default false
-   */
-  isolateSessions?: boolean;
 };
 
 export type GatewayAuthConfig = {

@@ -140,7 +140,7 @@ async function ensureSessionRuntimeCleanup(params: {
 }
 
 export const sessionsHandlers: GatewayRequestHandlers = {
-  "sessions.list": ({ params, respond }) => {
+  "sessions.list": ({ params, respond, client }) => {
     if (!assertValidParams(params, validateSessionsListParams, "sessions.list", respond)) {
       return;
     }
@@ -153,6 +153,18 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       store,
       opts: p,
     });
+
+    // Filter sessions based on authenticated user (trusted-proxy auth)
+    const authenticatedUser = client?.authenticatedUser;
+    if (authenticatedUser) {
+      // Only show sessions that belong to this user
+      result.sessions = result.sessions.filter((session) => {
+        // Session belongs to user if the key contains their email/ID
+        // e.g., "agent:main:direct:alice@example.com" belongs to "alice@example.com"
+        return session.key.includes(`:${authenticatedUser}`);
+      });
+    }
+
     respond(true, result, undefined);
   },
   "sessions.preview": ({ params, respond }) => {

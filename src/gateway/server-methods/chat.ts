@@ -33,7 +33,6 @@ import {
   validateChatSendParams,
 } from "../protocol/index.js";
 import { getMaxChatHistoryMessagesBytes } from "../server-constants.js";
-import { rewriteSessionKeyForUser } from "../server-session-key-rewrite.js";
 import {
   capArrayByJsonBytes,
   loadSessionEntry,
@@ -580,9 +579,9 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionKey: string;
       limit?: number;
     };
-    // Rewrite session key for per-user isolation when enabled
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
     const cfg = loadConfig();
-    const sessionKey = rewriteSessionKeyForUser(rawSessionKey, client, cfg);
     const { storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
     const rawMessages =
@@ -652,9 +651,8 @@ export const chatHandlers: GatewayRequestHandlers = {
       runId?: string;
     };
 
-    // Rewrite session key for per-user isolation when enabled
-    const cfg = loadConfig();
-    const sessionKey = rewriteSessionKeyForUser(rawSessionKey, client, cfg);
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
 
     const ops = createChatAbortOps(context);
 
@@ -773,10 +771,10 @@ export const chatHandlers: GatewayRequestHandlers = {
       }
     }
     const rawSessionKey = p.sessionKey;
-    // Rewrite session key for per-user isolation when enabled
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const resolvedSessionKey = client?.resolvedSessionKey || rawSessionKey;
     const cfg = loadConfig();
-    const rewrittenSessionKey = rewriteSessionKeyForUser(rawSessionKey, client, cfg);
-    const { entry, canonicalKey: sessionKey } = loadSessionEntry(rewrittenSessionKey);
+    const { entry, canonicalKey: sessionKey } = loadSessionEntry(resolvedSessionKey);
     const timeoutMs = resolveAgentTimeoutMs({
       cfg,
       overrideMs: p.timeoutMs,
@@ -1045,9 +1043,9 @@ export const chatHandlers: GatewayRequestHandlers = {
 
     // Load session to find transcript file
     const rawSessionKey = p.sessionKey;
-    // Rewrite session key for per-user isolation when enabled
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
     const cfg = loadConfig();
-    const sessionKey = rewriteSessionKeyForUser(rawSessionKey, client, cfg);
     const { storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
     if (!sessionId || !storePath) {

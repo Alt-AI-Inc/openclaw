@@ -21,6 +21,7 @@ import { upsertPresence } from "../../../infra/system-presence.js";
 import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
 import type { createSubsystemLogger } from "../../../logging/subsystem.js";
+import { buildAgentPeerSessionKey } from "../../../routing/session-key.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { resolveRuntimeServiceVersion } from "../../../version.js";
 import {
@@ -65,6 +66,32 @@ import { formatGatewayAuthFailureMessage, type AuthProvidedKind } from "./auth-m
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 
 const DEVICE_SIGNATURE_SKEW_MS = 10 * 60 * 1000;
+
+/**
+ * Resolve session key for gateway connection using dmScope.
+ * Treats gateway as a channel and applies session.dmScope configuration.
+ */
+function resolveGatewaySessionKey(params: {
+  authenticatedUser: string | undefined;
+  cfg: ReturnType<typeof loadConfig>;
+}): string | undefined {
+  const { authenticatedUser, cfg } = params;
+
+  // Only apply dmScope if we have an authenticated user
+  if (!authenticatedUser) {
+    return undefined;
+  }
+
+  // Treat gateway as a channel with the authenticated user as peer
+  return buildAgentPeerSessionKey({
+    agentId: "main",
+    channel: "gateway",
+    peerKind: "direct",
+    peerId: authenticatedUser,
+    dmScope: cfg.session?.dmScope ?? "main",
+    identityLinks: cfg.session?.identityLinks,
+  });
+}
 
 export function attachGatewayWsMessageHandler(params: {
   socket: WebSocket;
@@ -816,13 +843,18 @@ export function attachGatewayWsMessageHandler(params: {
         };
 
         clearHandshakeTimer();
+        const authenticatedUser =
+          authResult.ok && "user" in authResult ? authResult.user : undefined;
+        const cfg = loadConfig();
+        const resolvedSessionKey = resolveGatewaySessionKey({ authenticatedUser, cfg });
         const nextClient: GatewayWsClient = {
           socket,
           connect: connectParams,
           connId,
           presenceKey,
           clientIp: reportedClientIp,
-          authenticatedUser: authResult.ok && "user" in authResult ? authResult.user : undefined,
+          authenticatedUser,
+          resolvedSessionKey,
         };
         setClient(nextClient);
         setHandshakeState("connected");
