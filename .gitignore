@@ -93,3 +93,9 @@ package-lock.json
 
 # Local iOS signing overrides
 apps/ios/LocalSigning.xcconfig
+
+# Dev/test config and proxy files (for local session isolation testing)
+.openclaw/
+test-proxy.js
+test-proxy-v2.js
+test-isolate-sessions.json

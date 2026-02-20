@@ -8,6 +8,7 @@ import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
 import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
+import { loadConfig } from "../../config/config.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
@@ -562,7 +563,7 @@ function broadcastChatError(params: {
 }
 
 export const chatHandlers: GatewayRequestHandlers = {
-  "chat.history": async ({ params, respond, context }) => {
+  "chat.history": async ({ params, respond, context, client }) => {
     if (!validateChatHistoryParams(params)) {
       respond(
         false,
@@ -574,11 +575,14 @@ export const chatHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const { sessionKey, limit } = params as {
+    const { sessionKey: rawSessionKey, limit } = params as {
       sessionKey: string;
       limit?: number;
     };
-    const { cfg, storePath, entry } = loadSessionEntry(sessionKey);
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
+    const cfg = loadConfig();
+    const { storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
     const rawMessages =
       sessionId && storePath ? readSessionMessages(sessionId, storePath, entry?.sessionFile) : [];
@@ -630,7 +634,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       verboseLevel,
     });
   },
-  "chat.abort": ({ params, respond, context }) => {
+  "chat.abort": ({ params, respond, context, client }) => {
     if (!validateChatAbortParams(params)) {
       respond(
         false,
@@ -647,13 +651,16 @@ export const chatHandlers: GatewayRequestHandlers = {
       runId?: string;
     };
 
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
+
     const ops = createChatAbortOps(context);
 
     if (!runId) {
       const res = abortChatRunsForSessionKeyWithPartials({
         context,
         ops,
-        sessionKey: rawSessionKey,
+        sessionKey,
         abortOrigin: "rpc",
         stopReason: "rpc",
       });
@@ -666,7 +673,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       respond(true, { ok: true, aborted: false, runIds: [] });
       return;
     }
-    if (active.sessionKey !== rawSessionKey) {
+    if (active.sessionKey !== sessionKey) {
       respond(
         false,
         undefined,
@@ -678,13 +685,13 @@ export const chatHandlers: GatewayRequestHandlers = {
     const partialText = context.chatRunBuffers.get(runId);
     const res = abortChatRunById(ops, {
       runId,
-      sessionKey: rawSessionKey,
+      sessionKey,
       stopReason: "rpc",
     });
     if (res.aborted && partialText && partialText.trim()) {
       persistAbortedPartials({
         context,
-        sessionKey: rawSessionKey,
+        sessionKey,
         snapshots: [
           {
             runId,
@@ -764,7 +771,10 @@ export const chatHandlers: GatewayRequestHandlers = {
       }
     }
     const rawSessionKey = p.sessionKey;
-    const { cfg, entry, canonicalKey: sessionKey } = loadSessionEntry(rawSessionKey);
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const resolvedSessionKey = client?.resolvedSessionKey || rawSessionKey;
+    const cfg = loadConfig();
+    const { entry, canonicalKey: sessionKey } = loadSessionEntry(resolvedSessionKey);
     const timeoutMs = resolveAgentTimeoutMs({
       cfg,
       overrideMs: p.timeoutMs,
@@ -792,7 +802,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       const res = abortChatRunsForSessionKeyWithPartials({
         context,
         ops: createChatAbortOps(context),
-        sessionKey: rawSessionKey,
+        sessionKey: rewrittenSessionKey,
         abortOrigin: "stop-command",
         stopReason: "stop",
       });
@@ -822,7 +832,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       context.chatAbortControllers.set(clientRunId, {
         controller: abortController,
         sessionId: entry?.sessionId ?? clientRunId,
-        sessionKey: rawSessionKey,
+        sessionKey,
         startedAtMs: now,
         expiresAtMs: resolveChatRunExpiresAtMs({ now, timeoutMs }),
       });
@@ -961,7 +971,7 @@ export const chatHandlers: GatewayRequestHandlers = {
             broadcastChatFinal({
               context,
               runId: clientRunId,
-              sessionKey: rawSessionKey,
+              sessionKey,
               message,
             });
           }
@@ -986,7 +996,7 @@ export const chatHandlers: GatewayRequestHandlers = {
           broadcastChatError({
             context,
             runId: clientRunId,
-            sessionKey: rawSessionKey,
+            sessionKey,
             errorMessage: String(err),
           });
         })
@@ -1012,7 +1022,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       });
     }
   },
-  "chat.inject": async ({ params, respond, context }) => {
+  "chat.inject": async ({ params, respond, context, client }) => {
     if (!validateChatInjectParams(params)) {
       respond(
         false,
@@ -1032,7 +1042,10 @@ export const chatHandlers: GatewayRequestHandlers = {
 
     // Load session to find transcript file
     const rawSessionKey = p.sessionKey;
-    const { cfg, storePath, entry } = loadSessionEntry(rawSessionKey);
+    // Use pre-resolved session from connection if available (dmScope applied)
+    const sessionKey = client?.resolvedSessionKey || rawSessionKey;
+    const cfg = loadConfig();
+    const { storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
     if (!sessionId || !storePath) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "session not found"));
@@ -1045,7 +1058,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionId,
       storePath,
       sessionFile: entry?.sessionFile,
-      agentId: resolveSessionAgentId({ sessionKey: rawSessionKey, config: cfg }),
+      agentId: resolveSessionAgentId({ sessionKey, config: cfg }),
       createIfMissing: false,
     });
     if (!appended.ok || !appended.messageId || !appended.message) {
@@ -1063,7 +1076,7 @@ export const chatHandlers: GatewayRequestHandlers = {
     // Broadcast to webchat for immediate UI update
     const chatPayload = {
       runId: `inject-${appended.messageId}`,
-      sessionKey: rawSessionKey,
+      sessionKey,
       seq: 0,
       state: "final" as const,
       message: appended.message,

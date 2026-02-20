@@ -18,6 +18,8 @@ export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
   clientIp?: string;
+  /** Authenticated user from trusted-proxy auth (email/username) */
+  authenticatedUser?: string;
 };
 
 export type RespondFn = (
